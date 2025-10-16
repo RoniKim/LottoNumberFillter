@@ -1,0 +1,282 @@
+<Window x:Class="LottoNumber.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:LottoNumber.Converters"
+        mc:Ignorable="d"
+        Title="Lotto 6/45 필터 조합기"
+        Height="720" Width="1200"
+        Background="{DynamicResource App.Background}">
+    <Window.Resources>
+        <converters:BooleanToStatusConverter x:Key="BooleanToStatusConverter"
+                                             BusyText="작업 중..."
+                                             IdleText="대기 중"/>
+
+        <Style TargetType="Button">
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource App.FG}"/>
+            <Setter Property="Background" Value="{DynamicResource App.Primary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Primary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource App.FG}"/>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource App.Card}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
+        <Style x:Key="ToggleCheck" TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 좌측: 조건 빌더 -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="조건 추가" Margin="0,0,0,8"/>
+                        <!-- 1) 조건 옵션 -->
+                        <TextBlock Text="조건 종류" Margin="2,0,2,2"/>
+                        <ComboBox ItemsSource="{Binding ConditionOptions}"
+                                  SelectedItem="{Binding SelectedConditionOption}"
+                                  DisplayMemberPath="DisplayName"/>
+                        <TextBlock Text="{Binding SelectedConditionDescription}"
+                                   TextWrapping="Wrap"
+                                   Margin="2,4,2,10"
+                                   Foreground="{DynamicResource App.FGSub}"/>
+
+                        <!-- 2) 파라미터 입력 -->
+                        <ItemsControl ItemsSource="{Binding SelectedParameters}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,2">
+                                        <TextBlock Text="{Binding Label}"
+                                                   Width="140"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource App.FG}"/>
+                                        <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 3) 추가 버튼 -->
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Content="조건 추가"
+                                    Command="{Binding AddConditionCommand}"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="현재 조건" Margin="0,0,0,8"/>
+                        <!-- 조건 목록 (활성화 + 요약 + 선택) -->
+                        <ListBox ItemsSource="{Binding Conditions}"
+                                 SelectedItem="{Binding SelectedCondition}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel LastChildFill="True" Margin="0,4">
+                                        <CheckBox Style="{StaticResource ToggleCheck}"
+                                                  IsChecked="{Binding IsEnabled}"/>
+                                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Content="선택 조건 삭제"
+                                    Command="{Binding RemoveSelectedConditionCommand}"
+                                    Background="{DynamicResource App.Danger}"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 우측: 실행/진행/준비/결과 -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 실행/진행 -->
+            <Border Style="{StaticResource Card}" Grid.Row="0">
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                        <Button Content="필터 적용"
+                                Command="{Binding ApplyFiltersCommand}"/>
+                        <Button Content="작업 취소"
+                                Command="{Binding CancelCommand}" Margin="12,0,0,0"
+                                Background="{DynamicResource App.Warn}"/>
+                    </StackPanel>
+
+                    <Grid Margin="24,0,0,0" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ProgressBar Grid.Column="0" Height="14"
+                                     Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding ProgressPercent, StringFormat={}{0}%}"
+                                   Margin="12,0,0,0"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <!-- 페이지 이동 + 내보내기/정리 -->
+            <Border Style="{StaticResource Card}" Grid.Row="1">
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Left"
+                                VerticalAlignment="Center"
+                                Margin="0,0,24,0">
+                        <Button Content="이전"
+                                Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
+                        <Button Content="다음"
+                                Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}" Margin="12,0,0,0"/>
+                        <TextBlock Text="이동:" Margin="16,0,4,0" VerticalAlignment="Center"/>
+                        <TextBox Width="60"
+                                 Text="{Binding PageInput, UpdateSourceTrigger=PropertyChanged}" Margin="12,0,0,0"/>
+                        <Button Content="이동"
+                                Command="{Binding GoToPageCommand}" Margin="12,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                VerticalAlignment="Center"
+                                Margin="24,0,0,0">
+                        <Button Content="CSV 내보내기"
+                                Command="{Binding ExportFilteredCsvCommand}"/>
+                        <Button Content="선택 삭제"
+                                Command="{Binding DeleteSelectedPageItemsCommand}" Margin="12,0,0,0"
+                                Background="{DynamicResource App.Danger}"/>
+                        <TextBlock Text="{Binding PageSummary}" Margin="16,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding TotalMatchesSummary}" Margin="16,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- 결과/추천 -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="360"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 결과 그리드 -->
+                <Border Style="{StaticResource Card}" Grid.Column="0">
+                    <Grid>
+                        <DataGrid ItemsSource="{Binding FilteredPreview}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  SelectionMode="Extended">
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Binding="{Binding IsMarked, Mode=TwoWay}" Header="선택" Width="60"/>
+                                <DataGridTextColumn Binding="{Binding Text}" Header="조합" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <!-- 빈 상태 -->
+                        <TextBlock Text="표시할 결과가 없습니다."
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontStyle="Italic" Opacity="0.7">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding FilteredPreview.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <!-- 번호 통계 -->
+                <Border Style="{StaticResource Card}" Grid.Column="1">
+                    <StackPanel>
+                        <TextBlock Text="번호별 당첨 비율" FontSize="16" FontWeight="SemiBold"/>
+                        <ItemsControl ItemsSource="{Binding WinningNumberStats}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="2" Padding="6,3" Background="{DynamicResource App.CardBorder}" CornerRadius="6">
+                                        <TextBlock Text="{Binding Display}"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="당첨 이력이 없습니다." Margin="0,8,0,0" Foreground="{DynamicResource App.FGSub}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding WinningNumberStats.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 하단 상태/상호작용 안내 -->
+            <Border Style="{StaticResource Card}" Grid.Row="3">
+                <DockPanel>
+                    <TextBlock Text="상태:" FontWeight="SemiBold"/>
+                    <TextBlock Margin="6,0,0,0"
+                               Foreground="{DynamicResource App.FGSub}"
+                               Text="{Binding IsBusy, Converter={StaticResource BooleanToStatusConverter}}"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
